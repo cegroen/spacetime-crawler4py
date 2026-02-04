@@ -26,6 +26,7 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scraped from resp.raw_response.content
+    
     links = []
     counter += 1
 
@@ -71,8 +72,14 @@ def extract_next_links(url, resp):
             links.append(absolute_url)
             parsed = urlparse(url)
             host = parsed.hostname or ""
+            # if host.endswith("ics.uci.edu"):
+            #     subdomains[f"http://{host}"] += 1
             if host.endswith("ics.uci.edu"):
-                subdomains[f"http://{host}"] += 1
+                subdomain_key = f"http://{host}"
+                if subdomain_key in subdomains:
+                    subdomains[subdomain_key] += 1
+                else:
+                    subdomains[subdomain_key] = 1            
 
     if counter >= 400:
         data = {
