@@ -74,7 +74,7 @@ def extract_next_links(url, resp):
             if host.endswith("ics.uci.edu"):
                 subdomains[f"http://{host}"] += 1
 
-    if counter >= 500:
+    if counter >= 400:
         data = {
             "unique_pages": unique_pages,
             "subdomains": subdomains,
