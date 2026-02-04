@@ -13,6 +13,7 @@ counter = 0
 report_file = "report.pkl"
 
 def scraper(url, resp):
+    print("hi")
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 
@@ -26,6 +27,7 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scraped from resp.raw_response.content
+    global unique_pages, longest_page, word_freq, subdomains, counter, report_file
     
     links = []
     counter += 1
@@ -33,7 +35,7 @@ def extract_next_links(url, resp):
     if resp.status != 200:
         return links
 
-    if not resp.raw_response or not resp.raw_response.content:
+    if not resp or not resp.raw_response or not resp.raw_response.content:
         return links
 
     content_type = resp.raw_response.headers.get("Content-Type", "")
@@ -46,10 +48,15 @@ def extract_next_links(url, resp):
         return links
 
     # words = text.split()
-    tokens = PartA.tokenize(tree.text_content())
+    text = tree.text_content()
+
+    # check for very low information
+    if len(text) <= 200:
+        return links
+
+    tokens = PartA.tokenize(text)
     word_count = len(tokens)
 
-    # TODO: update global stats here
     if word_count > longest_page[1]: longest_page = (url, word_count)
 
     for token in tokens:
@@ -69,6 +76,7 @@ def extract_next_links(url, resp):
 
         # check if we've already seen this page
         if absolute_url not in unique_pages:
+            unique_pages.add(absolute_url)
             links.append(absolute_url)
             parsed = urlparse(url)
             host = parsed.hostname or ""
@@ -81,7 +89,7 @@ def extract_next_links(url, resp):
                 else:
                     subdomains[subdomain_key] = 1            
 
-    if counter >= 400:
+    if counter >= 100:
         data = {
             "unique_pages": unique_pages,
             "subdomains": subdomains,
@@ -119,12 +127,10 @@ def extract_next_links(url, resp):
 #         raise
 
 def is_valid(url):
-    """
-    Decide whether to crawl this URL or not.
+    # Decide whether to crawl this url or not. 
+    # If you decide to crawl it, return True; otherwise return False.
+    # There are already some conditions that return False.
 
-    Returns:
-        True if we want to crawl this URL, False otherwise.
-    """
     try:
         parsed = urlparse(url)
 
@@ -181,7 +187,7 @@ def is_valid(url):
         # ---------- Basic trap heuristics ----------
 
         # 1. Extremely long URLs are often traps (e.g., calendars with many params)
-        if len(url) > 300:
+        if len(url) > 250:
             return False
 
         # 2. Repeated path segments (e.g. /2020/01/01/2020/01/01/)
@@ -198,7 +204,7 @@ def is_valid(url):
             trap_keywords = [
                 "calendar", "ical", "month", "year", "format=xml",
                 "replytocom", "sessionid", "sort=", "page=", "offset=",
-                "limit=", "view=grid", "eventdisplay"
+                "limit=", "view=grid", "eventdisplay,", "date"
             ]
             if any(k in query for k in trap_keywords):
                 return False
@@ -212,4 +218,6 @@ def is_valid(url):
     except TypeError:
         print("TypeError for ", url)
         return False
+    
+
     
