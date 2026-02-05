@@ -5,6 +5,7 @@ import PartA
 import pickle
 import os
 from collections import deque
+from difflib import SequenceMatcher
 
 unique_pages = set()
 longest_page = ("", 0)
@@ -12,11 +13,11 @@ word_freq = {}
 subdomains = {}
 counter = 0
 report_file = "report.pkl"
-recent_pages = deque(maxlen = 100)
+recent_pages = deque(maxlen = 1000)
+recent_urls = deque(maxlen = 1000)
 too_similar = 0.95
 
 def scraper(url, resp):
-    print("hi")
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 
@@ -39,6 +40,7 @@ def extract_next_links(url, resp):
     if resp.status != 200:
         return links
 
+    # detect and avoid dead URLs that return a 200 status but no data
     if not resp or not resp.raw_response or not resp.raw_response.content:
         return links
 
@@ -60,18 +62,26 @@ def extract_next_links(url, resp):
     tokens = PartA.tokenize(text)
     word_count = len(tokens)
 
+    # check for similarity to previous pages by computing Jaccard similarity of tokens
     for (_, other_tokens) in recent_pages:
         if jaccard_similarity(set(tokens), other_tokens) >= too_similar:
             return links # return if page is too similar
+        
+    # # check url similarity as well
+    # for (other_url, _) in recent_pages:
+    #     if SequenceMatcher(None, url, other_url).ratio() >= 0.96:
+    #         return links
     
     recent_pages.append((url, set(tokens))) # add to recent_pages if it wasn't similar to anything
 
     if word_count > longest_page[1]: longest_page = (url, word_count)
 
+    # keep track of word frequencies in a dictionary
     for token in tokens:
         if token in word_freq: word_freq[token] += 1
         else: word_freq[token] = 1
 
+    # find outgoing links
     for element in tree.xpath("//a[@href]"):
         href = element.get("href")
         if href is None:
@@ -80,11 +90,18 @@ def extract_next_links(url, resp):
         absolute_url = urljoin(url, href)
         absolute_url, _ = urldefrag(absolute_url)
 
+        # # check url similarity as well
+        # for (other_url, _) in recent_pages:
+        #     if SequenceMatcher(None, absolute_url, other_url).ratio() >= 0.95:
+        #         return links
+
         if absolute_url not in unique_pages:
             unique_pages.add(absolute_url)
             links.append(absolute_url)
             parsed = urlparse(url)
             host = parsed.hostname or ""
+
+            # keep track of visited subdomain frequencies
             if host.endswith("ics.uci.edu"):
                 subdomain_key = f"http://{host}"
                 if subdomain_key in subdomains:
@@ -92,6 +109,7 @@ def extract_next_links(url, resp):
                 else:
                     subdomains[subdomain_key] = 1            
 
+    # write data to file after certain number of iterations
     if counter >= 100:
         data = {
             "unique_pages": unique_pages,
@@ -99,7 +117,7 @@ def extract_next_links(url, resp):
             "word_freq": word_freq,
             "longest_page": longest_page,
         }
-        temp = report_file + ".tmp"
+        temp = report_file + ".tmp" # temp file so I don't try to access the file while it is being written
         with open(temp, "wb") as f:
             pickle.dump(data, f)
         os.replace(temp, report_file)
@@ -133,6 +151,7 @@ def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
+    global recent_pages
 
     try:
         parsed = urlparse(url)
@@ -180,9 +199,7 @@ def is_valid(url):
         ):
             return False
 
-        # ---------- Basic trap heuristics ----------
-
-        # 1. Extremely long URLs are often traps (e.g., calendars with many params)
+        # avoid extremely long urls
         if len(url) > 250:
             return False
 
@@ -194,20 +211,40 @@ def is_valid(url):
             return False
 
         # 3. Avoid certain query patterns that tend to be traps
+        trap_words = [
+            "calendar", "ical", "month", "year", "format=xml",
+            "replytocom", "sessionid", "sort=", "page=", "offset=",
+            "limit=", "view=grid", "eventdisplay,", "date", "login"
+        ]
         query = parsed.query.lower()
         if query:
             # Avoid infinite calendars, search results pages, etc.
-            trap_keywords = [
-                "calendar", "ical", "month", "year", "format=xml",
-                "replytocom", "sessionid", "sort=", "page=", "offset=",
-                "limit=", "view=grid", "eventdisplay,", "date"
-            ]
-            if any(k in query for k in trap_keywords):
+            if any(k in query for k in trap_words):
                 return False
 
-            # Too many query parameters can be a trap
+            # avoid urls with too many query parameters
             if query.count("&") > 5:
                 return False
+            
+            if re.match(
+                r".*\.(css|js|bmp|gif|jpe?g|ico"
+                r"|png|tiff?|mid|mp2|mp3|mp4"
+                r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
+                r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
+                r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
+                r"|epub|dll|cnf|tgz|sha1"
+                r"|thmx|mso|arff|rtf|jar|csv"
+                r"|rm|smil|wmv|swf|wma|zip|rar|gz)$",
+                query
+            ):
+                return False
+            
+        # check url similarity
+        for other_url in recent_urls:
+            if SequenceMatcher(None, url, other_url).ratio() >= 0.95:
+                return False
+            
+        recent_urls.append(url)
 
         return True
 
