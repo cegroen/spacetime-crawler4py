@@ -13,9 +13,9 @@ word_freq = {}
 subdomains = {}
 counter = 0
 report_file = "report.pkl"
-recent_pages = deque(maxlen = 200)
-recent_urls = deque(maxlen = 500)
-too_similar = 0.95
+recent_pages = deque(maxlen = 100)
+recent_urls = deque(maxlen = 600)
+too_similar = 0.9
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
@@ -52,6 +52,12 @@ def extract_next_links(url, resp):
         tree = html.fromstring(resp.raw_response.content)
     except Exception:
         return links
+
+    #text = tree.text_content()
+    
+    # get rid of text in style and script tags
+    for tag in tree.xpath("//script | //style"):
+        tag.getparent().remove(tag)
 
     text = tree.text_content()
 
@@ -253,10 +259,10 @@ def is_valid(url):
             
         # check url similarity
         for other_url in recent_urls:
-            if SequenceMatcher(None, url, other_url).ratio() >= 0.95:
+            if SequenceMatcher(None, url, other_url).ratio() >= 0.93:
                 return False
             
-        # recent_urls.append(url)
+        recent_urls.append(url)
 
         return True
 
