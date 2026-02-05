@@ -13,8 +13,8 @@ word_freq = {}
 subdomains = {}
 counter = 0
 report_file = "report.pkl"
-recent_pages = deque(maxlen = 100)
-recent_urls = deque(maxlen = 600)
+recent_pages = deque(maxlen = 50)
+recent_urls = deque(maxlen = 400)
 too_similar = 0.9
 
 def scraper(url, resp):
@@ -70,8 +70,7 @@ def extract_next_links(url, resp):
     word_count = len(tokens)
 
     # check for similarity to previous pages by computing Jaccard similarity of tokens
-    for (other_url, other_tokens) in recent_pages:
-        print("Similarity:", jaccard_similarity(token_set, other_tokens), url, other_url)
+    for (_, other_tokens) in recent_pages:
         if jaccard_similarity(token_set, other_tokens) >= too_similar:
             return links # return if page is too similar
         
@@ -89,7 +88,7 @@ def extract_next_links(url, resp):
     for token in tokens:
         if token in word_freq: word_freq[token] += 1
         else: word_freq[token] = 1
-
+    print('Actually crawling this site aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
     # find outgoing links
     for element in tree.xpath("//a[@href]"):
         href = element.get("href")
