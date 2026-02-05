@@ -4,13 +4,16 @@ from lxml import html
 import PartA
 import pickle
 import os
+from collections import deque
 
 unique_pages = set()
-longest_page = ("", 0)  # (url, word_count)
+longest_page = ("", 0)
 word_freq = {}
 subdomains = {}
 counter = 0
 report_file = "report.pkl"
+recent_pages = deque(maxlen = 100)
+too_similar = 0.95
 
 def scraper(url, resp):
     print("hi")
@@ -27,7 +30,8 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scraped from resp.raw_response.content
-    global unique_pages, longest_page, word_freq, subdomains, counter, report_file
+
+    global unique_pages, longest_page, word_freq, subdomains, counter, report_file, recent_pages, too_similar
     
     links = []
     counter += 1
@@ -47,7 +51,6 @@ def extract_next_links(url, resp):
     except Exception:
         return links
 
-    # words = text.split()
     text = tree.text_content()
 
     # check for very low information
@@ -56,6 +59,12 @@ def extract_next_links(url, resp):
 
     tokens = PartA.tokenize(text)
     word_count = len(tokens)
+
+    for (_, other_tokens) in recent_pages:
+        if jaccard_similarity(set(tokens), other_tokens) >= too_similar:
+            return links # return if page is too similar
+    
+    recent_pages.append((url, set(tokens))) # add to recent_pages if it wasn't similar to anything
 
     if word_count > longest_page[1]: longest_page = (url, word_count)
 
@@ -71,17 +80,11 @@ def extract_next_links(url, resp):
         absolute_url = urljoin(url, href)
         absolute_url, _ = urldefrag(absolute_url)
 
-        # if is_valid(absolute_url):
-        #     links.append(absolute_url)
-
-        # check if we've already seen this page
         if absolute_url not in unique_pages:
             unique_pages.add(absolute_url)
             links.append(absolute_url)
             parsed = urlparse(url)
             host = parsed.hostname or ""
-            # if host.endswith("ics.uci.edu"):
-            #     subdomains[f"http://{host}"] += 1
             if host.endswith("ics.uci.edu"):
                 subdomain_key = f"http://{host}"
                 if subdomain_key in subdomains:
@@ -134,7 +137,6 @@ def is_valid(url):
     try:
         parsed = urlparse(url)
 
-        # Only http/https
         if parsed.scheme not in {"http", "https"}:
             return False
 
@@ -143,12 +145,6 @@ def is_valid(url):
         path = parsed.path or ""
         netloc = host.lower()
 
-        # Allowed domains
-        # *.ics.uci.edu/*
-        # *.cs.uci.edu/*
-        # *.informatics.uci.edu/*
-        # *.stat.uci.edu/*
-        # today.uci.edu/department/information_computer_sciences/*
         allowed = False
 
         if netloc.endswith("ics.uci.edu"):
@@ -219,5 +215,12 @@ def is_valid(url):
         print("TypeError for ", url)
         return False
     
-
+def jaccard_similarity(set1, set2):
+    if not set1 or not set2:
+        return 0.0
+    intersection = len(set1 & set2)
+    union = len(set1 | set2)
+    if union == 0:
+        return 0.0
+    return intersection / union
     

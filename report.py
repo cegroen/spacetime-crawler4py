@@ -4,11 +4,12 @@ import os
 report_file = "report.pkl"
 
 if not os.path.exists(report_file):
-    print("No analytics file found yet.")
     raise SystemExit
 
 with open(report_file, "rb") as f:
     data = pickle.load(f)
+
+stop_words = ["i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours", "yourself", "yourselves", "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", "itself", "they", "them", "their", "theirs", "themselves", "what", "which", "who", "whom", "this", "that", "these", "those", "am", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "having", "do", "does", "did", "doing", "a", "an", "the", "and", "but", "if", "or", "because", "as", "until", "while", "of", "at", "by", "for", "with", "about", "against", "between", "into", "through", "during", "before", "after", "above", "below", "to", "from", "up", "down", "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here", "there", "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very", "s", "t", "can", "will", "just", "don", "should", "now"]
 
 unique_pages = data["unique_pages"]
 subdomains = data["subdomains"]
@@ -30,12 +31,27 @@ print("Number of ics.uci.edu subdomains:", len(ics_subdomains))
 for subdomain, count in list(ics_subdomains.items())[:10]:
     print(subdomain, count)
 
-# Top 10 words
-top_words = sorted(
+# # Top 10 words
+# top_words = sorted(
+#     word_freq.items(),
+#     key=lambda kv: kv[1],
+#     reverse=True
+# )[:10]
+# print("\nTop 10 words so far:")
+# for w, c in top_words:
+#     print(w, c)
+
+sorted_words = sorted(
     word_freq.items(),
     key=lambda kv: kv[1],
     reverse=True
-)[:10]
-print("\nTop 10 words so far:")
-for w, c in top_words:
-    print(w, c)
+)
+
+print("\nTop 50 words (excluding stopwords) so far:")
+count = 0
+for w, c in sorted_words:
+    if w.lower() not in stop_words:
+        print(w, c)
+        count += 1
+        if count >= 50:
+            break
