@@ -13,8 +13,8 @@ word_freq = {}
 subdomains = {}
 counter = 0
 report_file = "report.pkl"
-recent_pages = deque(maxlen = 1000)
-recent_urls = deque(maxlen = 1000)
+recent_pages = deque(maxlen = 200)
+recent_urls = deque(maxlen = 500)
 too_similar = 0.95
 
 def scraper(url, resp):
@@ -60,11 +60,12 @@ def extract_next_links(url, resp):
         return links
 
     tokens = PartA.tokenize(text)
+    token_set = set(tokens)
     word_count = len(tokens)
 
     # check for similarity to previous pages by computing Jaccard similarity of tokens
     for (_, other_tokens) in recent_pages:
-        if jaccard_similarity(set(tokens), other_tokens) >= too_similar:
+        if jaccard_similarity(token_set, other_tokens) >= too_similar:
             return links # return if page is too similar
         
     # # check url similarity as well
@@ -73,6 +74,7 @@ def extract_next_links(url, resp):
     #         return links
     
     recent_pages.append((url, set(tokens))) # add to recent_pages if it wasn't similar to anything
+    recent_urls.append(url)
 
     if word_count > longest_page[1]: longest_page = (url, word_count)
 
@@ -98,7 +100,8 @@ def extract_next_links(url, resp):
         if absolute_url not in unique_pages:
             unique_pages.add(absolute_url)
             links.append(absolute_url)
-            parsed = urlparse(url)
+            #parsed = urlparse(url)
+            parsed = urlparse(absolute_url) # not sure about this but im supposed to compute the # of unique pages detected not necessarily downloaded
             host = parsed.hostname or ""
 
             # keep track of visited subdomain frequencies
@@ -151,7 +154,7 @@ def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
-    global recent_pages
+    global recent_urls
 
     try:
         parsed = urlparse(url)
@@ -182,6 +185,15 @@ def is_valid(url):
 
         if not allowed:
             return False
+        
+        lowered_path = path.lower()
+        auth_keywords = [
+            "wp-login", "wp-admin", "login", "signin", "log-in", "sign-in",
+            "logout", "log-out", "admin", "account", "auth"
+        ]
+
+        if any(k in lowered_path for k in auth_keywords):
+            return False
 
         # ---------- File type filtering (non-HTML resources) ----------
         # If the path looks like a file with disallowed extension, skip it.
@@ -200,7 +212,7 @@ def is_valid(url):
             return False
 
         # avoid extremely long urls
-        if len(url) > 250:
+        if len(url) > 200:
             return False
 
         # 2. Repeated path segments (e.g. /2020/01/01/2020/01/01/)
@@ -223,18 +235,18 @@ def is_valid(url):
                 return False
 
             # avoid urls with too many query parameters
-            if query.count("&") > 5:
+            if query.count("&") >= 5:
                 return False
             
-            if re.match(
-                r".*\.(css|js|bmp|gif|jpe?g|ico"
+            if re.search(
+                r"(=|%3a)[^=&]+\.(css|js|bmp|gif|jpe?g|ico"
                 r"|png|tiff?|mid|mp2|mp3|mp4"
                 r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
                 r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
                 r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
                 r"|epub|dll|cnf|tgz|sha1"
                 r"|thmx|mso|arff|rtf|jar|csv"
-                r"|rm|smil|wmv|swf|wma|zip|rar|gz)$",
+                r"|rm|smil|wmv|swf|wma|zip|rar|gz)",
                 query
             ):
                 return False
@@ -244,7 +256,7 @@ def is_valid(url):
             if SequenceMatcher(None, url, other_url).ratio() >= 0.95:
                 return False
             
-        recent_urls.append(url)
+        # recent_urls.append(url)
 
         return True
 
