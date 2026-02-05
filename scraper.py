@@ -71,6 +71,7 @@ def extract_next_links(url, resp):
 
     # check for similarity to previous pages by computing Jaccard similarity of tokens
     for (_, other_tokens) in recent_pages:
+        print(jaccard_similarity(token_set, other_tokens))
         if jaccard_similarity(token_set, other_tokens) >= too_similar:
             return links # return if page is too similar
         
@@ -259,7 +260,7 @@ def is_valid(url):
             
         # check url similarity
         for other_url in recent_urls:
-            if SequenceMatcher(None, url, other_url).ratio() >= 0.93:
+            if SequenceMatcher(None, url, other_url).ratio() >= 0.9:
                 return False
             
         recent_urls.append(url)
