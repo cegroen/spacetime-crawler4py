@@ -70,8 +70,8 @@ def extract_next_links(url, resp):
     word_count = len(tokens)
 
     # check for similarity to previous pages by computing Jaccard similarity of tokens
-    for (_, other_tokens) in recent_pages:
-        print(jaccard_similarity(token_set, other_tokens))
+    for (other_url, other_tokens) in recent_pages:
+        print("Similarity:", jaccard_similarity(token_set, other_tokens), url, other_url)
         if jaccard_similarity(token_set, other_tokens) >= too_similar:
             return links # return if page is too similar
         
