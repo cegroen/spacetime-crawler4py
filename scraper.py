@@ -129,7 +129,7 @@ def is_valid(url):
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
 
-    global recent_urls
+    global recent_urls, too_similar
 
     try:
         parsed = urlparse(url)
@@ -184,7 +184,7 @@ def is_valid(url):
 
         # avoid repeated segments and long sequences of segments
         segments = [seg for seg in path.split("/") if seg]
-        if len(segments) != len(set(segments)) and len(segments) > 6:
+        if len(segments) != len(set(segments)) and len(segments) >= 5:
             return False
 
         # 3. Avoid certain query patterns that tend to be traps
@@ -217,7 +217,7 @@ def is_valid(url):
             
         # check url similarity
         for other_url in recent_urls:
-            if SequenceMatcher(None, url, other_url).ratio() >= 0.9:
+            if SequenceMatcher(None, url, other_url).ratio() >= too_similar:
                 return False
             
         recent_urls.append(url)
