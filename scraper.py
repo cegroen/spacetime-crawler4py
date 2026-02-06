@@ -52,8 +52,6 @@ def extract_next_links(url, resp):
         tree = html.fromstring(resp.raw_response.content)
     except Exception:
         return links
-
-    #text = tree.text_content()
     
     # get rid of text in style and script tags
     for tag in tree.xpath("//script | //style"):
@@ -73,11 +71,6 @@ def extract_next_links(url, resp):
     for (_, other_tokens) in recent_pages:
         if jaccard_similarity(token_set, other_tokens) >= too_similar:
             return links # return if page is too similar
-        
-    # # check url similarity as well
-    # for (other_url, _) in recent_pages:
-    #     if SequenceMatcher(None, url, other_url).ratio() >= 0.96:
-    #         return links
     
     recent_pages.append((url, set(tokens))) # add to recent_pages if it wasn't similar to anything
     recent_urls.append(url)
@@ -88,7 +81,9 @@ def extract_next_links(url, resp):
     for token in tokens:
         if token in word_freq: word_freq[token] += 1
         else: word_freq[token] = 1
-    print('Actually crawling this site aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+        
+    print('------------------------------- Actually crawling this site -------------------------------')
+
     # find outgoing links
     for element in tree.xpath("//a[@href]"):
         href = element.get("href")
@@ -97,11 +92,6 @@ def extract_next_links(url, resp):
 
         absolute_url = urljoin(url, href)
         absolute_url, _ = urldefrag(absolute_url)
-
-        # # check url similarity as well
-        # for (other_url, _) in recent_pages:
-        #     if SequenceMatcher(None, absolute_url, other_url).ratio() >= 0.95:
-        #         return links
 
         if absolute_url not in unique_pages:
             unique_pages.add(absolute_url)
@@ -119,7 +109,7 @@ def extract_next_links(url, resp):
                     subdomains[subdomain_key] = 1            
 
     # write data to file after certain number of iterations
-    if counter >= 100:
+    if counter >= 50:
         data = {
             "unique_pages": unique_pages,
             "subdomains": subdomains,
@@ -134,32 +124,11 @@ def extract_next_links(url, resp):
 
     return links
 
-# def is_valid(url):
-#     # Decide whether to crawl this url or not. 
-#     # If you decide to crawl it, return True; otherwise return False.
-#     # There are already some conditions that return False.
-#     try:
-#         parsed = urlparse(url)
-#         if parsed.scheme not in set(["http", "https"]):
-#             return False
-#         return not re.match(
-#             r".*\.(css|js|bmp|gif|jpe?g|ico"
-#             + r"|png|tiff?|mid|mp2|mp3|mp4"
-#             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
-#             + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
-#             + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
-#             + r"|epub|dll|cnf|tgz|sha1"
-#             + r"|thmx|mso|arff|rtf|jar|csv"
-#             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
-
-#     except TypeError:
-#         print ("TypeError for ", parsed)
-#         raise
-
 def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
+
     global recent_urls
 
     try:
@@ -168,7 +137,6 @@ def is_valid(url):
         if parsed.scheme not in {"http", "https"}:
             return False
 
-        # ---------- Domain & path filtering ----------
         host = parsed.hostname or ""
         path = parsed.path or ""
         netloc = host.lower()
@@ -184,7 +152,6 @@ def is_valid(url):
         elif netloc.endswith("stat.uci.edu"):
             allowed = True
         elif netloc == "today.uci.edu":
-            # Restrict to the required path
             if not path.startswith("/department/information_computer_sciences"):
                 return False
             allowed = True
@@ -193,17 +160,11 @@ def is_valid(url):
             return False
         
         lowered_path = path.lower()
-        auth_keywords = [
-            "wp-login", "wp-admin", "login", "signin", "log-in", "sign-in",
-            "logout", "log-out", "admin", "account", "auth"
-        ]
+        login_words = ["login", "signin", "logout", "admin", "account", "auth"]
 
-        if any(k in lowered_path for k in auth_keywords):
+        if any(k in lowered_path for k in login_words):
             return False
 
-        # ---------- File type filtering (non-HTML resources) ----------
-        # If the path looks like a file with disallowed extension, skip it.
-        # NOTE: This is similar to the starter, but you can tweak/extend.
         if re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             r"|png|tiff?|mid|mp2|mp3|mp4"
@@ -221,29 +182,26 @@ def is_valid(url):
         if len(url) > 200:
             return False
 
-        # 2. Repeated path segments (e.g. /2020/01/01/2020/01/01/)
-        # can indicate infinite hierarchical traps
+        # avoid repeated segments and long sequences of segments
         segments = [seg for seg in path.split("/") if seg]
         if len(segments) != len(set(segments)) and len(segments) > 6:
-            # Many repeated segments
             return False
 
         # 3. Avoid certain query patterns that tend to be traps
         trap_words = [
-            "calendar", "ical", "month", "year", "format=xml",
-            "replytocom", "sessionid", "sort=", "page=", "offset=",
-            "limit=", "view=grid", "eventdisplay,", "date", "login"
+            "calendar", "ical", "month", "year", "eventdisplay,", "date", "login"
         ]
         query = parsed.query.lower()
         if query:
-            # Avoid infinite calendars, search results pages, etc.
+            # try to avoid calendars and other traps
             if any(k in query for k in trap_words):
                 return False
 
-            # avoid urls with too many query parameters
+            # avoid urls with many query parameters
             if query.count("&") >= 5:
                 return False
             
+            # avoid these files in queries as well
             if re.search(
                 r"(=|%3a)[^=&]+\.(css|js|bmp|gif|jpe?g|ico"
                 r"|png|tiff?|mid|mp2|mp3|mp4"
@@ -270,6 +228,7 @@ def is_valid(url):
         print("TypeError for ", url)
         return False
     
+# for computing similarity of two sets of tokens
 def jaccard_similarity(set1, set2):
     if not set1 or not set2:
         return 0.0

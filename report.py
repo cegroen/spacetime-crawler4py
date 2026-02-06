@@ -19,33 +19,12 @@ longest_page = data["longest_page"]
 sorted_subdomains = dict(sorted(subdomains.items()))
 
 print("Unique pages so far:", len(unique_pages))
-print("Longest page so far:", longest_page)
-
-# # Show a few subdomains
-# ics_subdomains = {
-#     url: count for url, count in subdomains.items()
-#     if url.endswith("ics.uci.edu")
-# }
-# print("Number of ics.uci.edu subdomains:", len(ics_subdomains))
-
-# for subdomain, count in list(ics_subdomains.items())[:10]:
-#     print(subdomain, count)
-
-print("Number of subdomains:", len(subdomains))
+print("\nLongest page so far:", longest_page)
+print("\nNumber of subdomains:", len(subdomains))
 
 # Print all subdomains in alphabetical order
 for subdomain, count in sorted(subdomains.items(), key=lambda x: x[0]):
     print(subdomain, count)
-
-# # Top 10 words
-# top_words = sorted(
-#     word_freq.items(),
-#     key=lambda kv: kv[1],
-#     reverse=True
-# )[:10]
-# print("\nTop 10 words so far:")
-# for w, c in top_words:
-#     print(w, c)
 
 sorted_words = sorted(
     word_freq.items(),
@@ -53,7 +32,7 @@ sorted_words = sorted(
     reverse=True
 )
 
-print("\nTop 50 words (excluding stopwords) so far:")
+print("\nTop 50 words:")
 count = 0
 for w, c in sorted_words:
     if w.lower() not in stop_words:
@@ -61,3 +40,4 @@ for w, c in sorted_words:
         count += 1
         if count >= 50:
             break
+        
