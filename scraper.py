@@ -81,8 +81,6 @@ def extract_next_links(url, resp):
     for token in tokens:
         if token in word_freq: word_freq[token] += 1
         else: word_freq[token] = 1
-        
-    print('------------------------------- Actually crawling this site -------------------------------')
 
     # find outgoing links
     for element in tree.xpath("//a[@href]"):
@@ -96,8 +94,7 @@ def extract_next_links(url, resp):
         if absolute_url not in unique_pages:
             unique_pages.add(absolute_url)
             links.append(absolute_url)
-            #parsed = urlparse(url)
-            parsed = urlparse(absolute_url) # not sure about this but im supposed to compute the # of unique pages detected not necessarily downloaded
+            parsed = urlparse(absolute_url)
             host = parsed.hostname or ""
 
             # keep track of visited subdomain frequencies
@@ -162,8 +159,9 @@ def is_valid(url):
         lowered_path = path.lower()
         login_words = ["login", "signin", "logout", "admin", "account", "auth"]
 
-        if any(k in lowered_path for k in login_words):
-            return False
+        for word in login_words:
+            if word in lowered_path:
+                return False
 
         if re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
@@ -188,14 +186,13 @@ def is_valid(url):
             return False
 
         # 3. Avoid certain query patterns that tend to be traps
-        trap_words = [
-            "calendar", "ical", "month", "year", "eventdisplay,", "date", "login"
-        ]
+        trap_words = ["calendar", "ical", "month", "year", "eventdisplay,", "date", "login"]
         query = parsed.query.lower()
         if query:
             # try to avoid calendars and other traps
-            if any(k in query for k in trap_words):
-                return False
+            for word in trap_words:
+                if word in query:
+                    return False
 
             # avoid urls with many query parameters
             if query.count("&") >= 5:
